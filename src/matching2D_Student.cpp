@@ -13,7 +13,12 @@ void matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource, std::vector<cv::Key
 
     if (matcherType.compare("MAT_BF") == 0)
     {
-        int normType = cv::NORM_HAMMING;
+        int normType;
+        if (descriptorType.compare("DES_HOG") == 0){
+            normType = cv::NORM_L2;
+        }
+        else {
+        normType = cv::NORM_HAMMING;}
         matcher = cv::BFMatcher::create(normType, crossCheck);
     }
     else if (matcherType.compare("MAT_FLANN") == 0)
@@ -66,7 +71,7 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("BRIEF") == 0)
     {
-        // extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
+        extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
     }
     else if (descriptorType.compare("ORB") == 0)
     {
@@ -74,7 +79,7 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("FREAK") == 0)
     {
-        // extractor = cv::xfeatures2d::FREAK::create();
+        extractor = cv::xfeatures2d::FREAK::create();
     }
     else if (descriptorType.compare("AKAZE") == 0)
     {
@@ -82,7 +87,7 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else
     {
-        // extractor = cv::xfeatures2d::SIFT::create();
+        extractor = cv::xfeatures2d::SIFT::create();
     }
 
     // perform feature description
@@ -210,7 +215,7 @@ void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std:
     int thresh = 30;
     if (detectorType.compare("FAST") == 0)
     {
-        detPtr = cv::FastFeatureDetector::create(thresh, true, 2);
+        detPtr = cv::FastFeatureDetector::create(thresh, true);
         // cv::Ptr<cv::FastFeatureDetector> detPtr = cv::FastFeatureDetector::create(40, true);
         // detPtr->detect(img, keypoints);
     }
@@ -234,7 +239,7 @@ void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std:
     }
     else
     {
-        // detPtr = cv::xfeatures2d::SIFT::create();
+        detPtr = cv::xfeatures2d::SIFT::create();
         // cv::Ptr<cv::FeatureDetector> detPtr = cv::xfeatures2d::SIFT::create();
         // detPtr->detect(img, keypoints);
     }
