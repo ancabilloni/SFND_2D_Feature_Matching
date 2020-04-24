@@ -36,7 +36,7 @@ void matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource, std::vector<cv::Key
     else if (selectorType.compare("SEL_KNN") == 0)
     { // k nearest neighbors (k=2)
         std::vector<std::vector<cv::DMatch>> knn_matches;
-        matcher->knnMatch(descSource, desRef, knn_matches, 2);
+        matcher->knnMatch(descSource, descRef, knn_matches, 2);
 
         double minDescDistRatio = 0.8;
         for (auto it = knn_matches.begin(); it != knn_matches.end(); ++it)
@@ -47,10 +47,11 @@ void matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource, std::vector<cv::Key
             }
         }
     }
+    std::cout << "Number of matches: " << matches.size() << std::endl;
 }
 
 // Use one of several types of state-of-art descriptors to uniquely identify keypoints
-void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descriptors, string descriptorType)
+void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descriptors, string descriptorType, double &total_t)
 {
     // select appropriate descriptor
     cv::Ptr<cv::DescriptorExtractor> extractor;
@@ -63,13 +64,17 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
 
         extractor = cv::BRISK::create(threshold, octaves, patternScale);
     }
+    else if (descriptorType.compare("BRIEF") == 0)
+    {
+        // extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
+    }
     else if (descriptorType.compare("ORB") == 0)
     {
         extractor = cv::ORB::create();
     }
     else if (descriptorType.compare("FREAK") == 0)
     {
-        extractor = cv::xfeatures2d::FREAK::create();
+        // extractor = cv::xfeatures2d::FREAK::create();
     }
     else if (descriptorType.compare("AKAZE") == 0)
     {
@@ -77,18 +82,19 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else
     {
-        extractor = cv::xfeatures2d::SIFT::create();
+        // extractor = cv::xfeatures2d::SIFT::create();
     }
 
     // perform feature description
     double t = (double)cv::getTickCount();
     extractor->compute(img, keypoints, descriptors);
     t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
+    total_t += t;
     cout << descriptorType << " descriptor extraction in " << 1000 * t / 1.0 << " ms" << endl;
 }
 
 // Detect keypoints in image using the traditional Shi-Thomasi detector
-void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool bVis)
+void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, double &total_t, bool bVis)
 {
     // compute detector parameters based on image size
     int blockSize = 4;       //  size of an average block for computing a derivative covariation matrix over each pixel neighborhood
@@ -114,6 +120,7 @@ void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool b
         keypoints.push_back(newKeyPoint);
     }
     t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
+    total_t += t;
     cout << "Shi-Tomasi detection with n=" << keypoints.size() << " keypoints in " << 1000 * t / 1.0 << " ms" << endl;
 
     // visualize results
@@ -128,7 +135,7 @@ void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool b
     }
 }
 
-void detKeypointsHarris(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool bVis)
+void detKeypointsHarris(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, double &total_t, bool bVis)
 {
     // params
     int blockSize = 2;
@@ -139,6 +146,8 @@ void detKeypointsHarris(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool
     // Detect Harris corners
     cv::Mat dst, dst_norm, dst_norm_scaled;
     dst = cv::Mat::zeros(img.size(), CV_32FC1);
+
+    double t = (double)cv::getTickCount();
     cv::cornerHarris(img, dst, blockSize, apertureSize, k, cv::BORDER_DEFAULT);
     cv::normalize(dst, dst_norm, 0, 255, cv::NORM_MINMAX, CV_32FC1, cv::Mat());
     cv:convertScaleAbs(dst_norm, dst_norm_scaled);
@@ -177,6 +186,9 @@ void detKeypointsHarris(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool
             }
         }
     }
+    t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
+    total_t += t;
+    cout << "Harris detection with n=" << keypoints.size() << " keypoints in " << 1000 * t / 1.0 << " ms" << endl;
 
     // visualize results
     if (bVis)
@@ -192,12 +204,13 @@ void detKeypointsHarris(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool
 
 // FAST, BRISK, ORB, AKAZE, and SIFT
 
-void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std::string detectorType, bool bVis)
+void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std::string detectorType, double &total_t, bool bVis)
 {
     cv::Ptr<cv::FeatureDetector> detPtr;  
+    int thresh = 30;
     if (detectorType.compare("FAST") == 0)
     {
-        detPtr = cv::FastFeatureDetector::create(40, true);
+        detPtr = cv::FastFeatureDetector::create(thresh, true, 2);
         // cv::Ptr<cv::FastFeatureDetector> detPtr = cv::FastFeatureDetector::create(40, true);
         // detPtr->detect(img, keypoints);
     }
@@ -221,11 +234,15 @@ void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std:
     }
     else
     {
-        detPtr = cv::xfeatures2d::SIFT::create();
+        // detPtr = cv::xfeatures2d::SIFT::create();
         // cv::Ptr<cv::FeatureDetector> detPtr = cv::xfeatures2d::SIFT::create();
         // detPtr->detect(img, keypoints);
     }
+    double t = (double)cv::getTickCount();
     detPtr->detect(img, keypoints);
+    t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
+    total_t += t;
+    cout << detectorType + " detection with n=" << keypoints.size() << " keypoints in " << 1000 * t / 1.0 << " ms" << endl;
 
     // visualize results
     if (bVis)
